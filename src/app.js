@@ -35,10 +35,10 @@ app.use(
 );
 
 // Read json
-app.use(express.json());
+app.use(express.json({limit: "20kb"}));
 
 // Read form data
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: "20kb"}));
 
 // To put token in cookie
 app.use(cookieParser());
