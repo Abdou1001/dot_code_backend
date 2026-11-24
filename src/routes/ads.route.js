@@ -1,14 +1,13 @@
 import express from "express";
 import {validate} from "../middlewares/validation.middleware.js";
 import {allowedTo, protect} from "../middlewares/auth.middleware.js";
+import {getAdsInfo, getOneAdInfo} from "../controller/ads/read.controller.js";
 import {
     deleteAd,
-    getAdsInfo,
-    getOneAdInfo,
     insertAd,
     toggleAdStatus,
     updateAd,
-} from "../controller/ads.controller.js";
+} from "../controller/ads/management.controller.js";
 import {insertAdSchema, updateAdSchema} from "../validations/ads.validation.js";
 import {uploadSingleImage} from "../middlewares/upload.middleware.js";
 
