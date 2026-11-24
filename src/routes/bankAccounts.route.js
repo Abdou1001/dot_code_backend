@@ -3,11 +3,13 @@ import express from "express";
 import {
     getBankAccountsInfo,
     getOneBankAccountInfo,
-    insertBankAccount,
-    updateBankAccount,
-    toggleBankAccountStatus,
+} from "../controller/bankAccounts/read.controller.js";
+import {
     deleteBankAccount,
-} from "../controller/bankAccounts.controller.js";
+    insertBankAccount,
+    toggleBankAccountStatus,
+    updateBankAccount,
+} from "../controller/bankAccounts/management.controller.js";
 
 import {protect, allowedTo} from "../middlewares/auth.middleware.js";
 
