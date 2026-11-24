@@ -1,16 +1,10 @@
 import express from "express";
 import {validate} from "../middlewares/validation.middleware.js";
 import {allowedTo, protect} from "../middlewares/auth.middleware.js";
-import {
-    cancelAppointment,
-    changeAppointmentsStatus,
-    createAppointment,
-    getAppointmentsInfo,
-    getMyAppointments,
-    getOneAppointmentInfo,
-    getPendingAppointments,
-    updateAppointment,
-} from "../controller/appointments.controller.js";
+import {getAppointmentsInfo, getMyAppointments, getOneAppointmentInfo, getPendingAppointments} from "../controller/appointments/read.controller.js";
+import {createAppointment} from "../controller/appointments/create.controller.js";
+import {updateAppointment} from "../controller/appointments/update.controller.js";
+import {cancelAppointment, changeAppointmentsStatus} from "../controller/appointments/status.controller.js";
 import {
     changeAppointmentsStatusSchema,
     insertAppointmentSchema,

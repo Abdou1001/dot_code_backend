@@ -1,20 +1,20 @@
 // Database Connection
-import {supabase} from "../config/supabase.js";
+import {supabase} from "../../config/supabase.js";
 
 import AsyncHandler from "express-async-handler";
 import jwt from "jsonwebtoken";
-import ApiError from "../utils/ApiError.js";
+import ApiError from "../../utils/ApiError.js";
 // encription tools
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 // send email to rest password
-import {sendEmail} from "../utils/sendEmail.js";
-import {resetPasswordTemplate} from "../utils/emailTemplate.js";
-import {normalizeYemenPhone} from "../utils/phone.js";
-import {generateOTPData, hashOTP} from "../utils/otp.js";
-import {sendOTP} from "../services/whatsapp.service.js";
-import { deleteCache } from "../services/cache.service.js";
-import { CACHE_KEYS } from "../config/cache.js";
+import {sendEmail} from "../../utils/sendEmail.js";
+import {resetPasswordTemplate} from "../../utils/emailTemplate.js";
+import {normalizeYemenPhone} from "../../utils/phone.js";
+import {generateOTPData, hashOTP} from "../../utils/otp.js";
+import {sendOTP} from "../whatsapp.service.js";
+import {deleteCache} from "../cache.service.js";
+import {CACHE_KEYS} from "../../config/cache.js";
 
 // @Desc Makes Toke for login yours
 // @Param Takes user_هd and role to make token
@@ -109,7 +109,7 @@ export const login = AsyncHandler(async (req, res, next) => {
 // @Route POST /api/auth/admin-login
 // @Access Public
 export const adminLogin = AsyncHandler(async (req, res, next) => {
-    const { login, password } = req.body;
+    const {login, password} = req.body;
 
     let query = supabase.from("user").select("*");
 
@@ -117,13 +117,10 @@ export const adminLogin = AsyncHandler(async (req, res, next) => {
     if (login.includes("@")) {
         query = query.eq("email", login.trim().toLowerCase());
     } else {
-        query = query.eq(
-            "phone_number",
-            normalizeYemenPhone(login)
-        );
+        query = query.eq("phone_number", normalizeYemenPhone(login));
     }
 
-    const { data: user, error } = await query.single();
+    const {data: user, error} = await query.single();
 
     // Check user + password
     if (
@@ -131,31 +128,20 @@ export const adminLogin = AsyncHandler(async (req, res, next) => {
         !user ||
         !(await bcrypt.compare(password, user?.password || ""))
     ) {
-        return next(
-            new ApiError(
-                "بيانات الدخول غير صحيحة",
-                401
-            )
-        );
+        return next(new ApiError("بيانات الدخول غير صحيحة", 401));
     }
 
     // 🔐 Dashboard only for admin
     if (user.role !== "admin") {
         return next(
-            new ApiError(
-                "ليس لديك صلاحية الدخول إلى لوحة الإدارة",
-                403
-            )
+            new ApiError("ليس لديك صلاحية الدخول إلى لوحة الإدارة", 403),
         );
     }
 
     // Check phone verified
     if (!user.phone_verified) {
         return next(
-            new ApiError(
-                "الحساب غير مفعل. يرجى إكمال تفعيل رقم الهاتف.",
-                401
-            )
+            new ApiError("الحساب غير مفعل. يرجى إكمال تفعيل رقم الهاتف.", 401),
         );
     }
 
@@ -164,8 +150,8 @@ export const adminLogin = AsyncHandler(async (req, res, next) => {
         return next(
             new ApiError(
                 "الحساب موقف من الإدارة، يرجى التواصل مع الإدارة",
-                401
-            )
+                401,
+            ),
         );
     }
 
@@ -178,14 +164,8 @@ export const adminLogin = AsyncHandler(async (req, res, next) => {
 // @Access Public
 export const register = AsyncHandler(async (req, res, next) => {
     // Destructuring
-    const {
-        full_name,
-        email,
-        password,
-        date_of_birth,
-        gender,
-        phone_number,
-    } = req.body;
+    const {full_name, email, password, date_of_birth, gender, phone_number} =
+        req.body;
 
     // Normalize phone number
     const phone = normalizeYemenPhone(phone_number);
@@ -201,10 +181,7 @@ export const register = AsyncHandler(async (req, res, next) => {
         // Account already verified
         if (existingUser.phone_verified) {
             return next(
-                new ApiError(
-                    "رقم الهاتف مسجل بالفعل، يمكنك تسجيل الدخول",
-                    409,
-                ),
+                new ApiError("رقم الهاتف مسجل بالفعل، يمكنك تسجيل الدخول", 409),
             );
         }
 
@@ -223,9 +200,7 @@ export const register = AsyncHandler(async (req, res, next) => {
             .eq("user_id", existingUser.user_id);
 
         if (updateError) {
-            return next(
-                new ApiError("حدث خطأ أثناء إنشاء رمز التحقق", 500),
-            );
+            return next(new ApiError("حدث خطأ أثناء إنشاء رمز التحقق", 500));
         }
 
         // Send WhatsApp OTP
@@ -235,8 +210,7 @@ export const register = AsyncHandler(async (req, res, next) => {
 
         return res.status(200).json({
             status: "success",
-            message:
-                "الحساب غير مفعل، تم إرسال رمز تحقق جديد إلى رقم هاتفك",
+            message: "الحساب غير مفعل، تم إرسال رمز تحقق جديد إلى رقم هاتفك",
         });
     }
 
@@ -276,10 +250,7 @@ export const register = AsyncHandler(async (req, res, next) => {
         console.error(error);
 
         return next(
-            new ApiError(
-                "حدث خطأ أثناء إنشاء الحساب، حاول مرة أخرى",
-                400,
-            ),
+            new ApiError("حدث خطأ أثناء إنشاء الحساب، حاول مرة أخرى", 400),
         );
     }
 
@@ -430,7 +401,6 @@ export const logout = AsyncHandler(async (req, res) => {
 // @Route GET : /api/auth/me
 // @Access Private
 export const getMe = AsyncHandler(async (req, res, next) => {
-
     // Get current user
     const {data: user, error} = await supabase
 
@@ -454,29 +424,17 @@ export const getMe = AsyncHandler(async (req, res, next) => {
 
         .single();
 
-
     // User not found
-    if (!user || error)
-
-        return next(
-            new ApiError(
-                "المستخدم غير موجود",
-                404
-            )
-        );
-
+    if (!user || error) return next(new ApiError("المستخدم غير موجود", 404));
 
     // Response
     res.status(200).json({
-
         status: "success",
 
         message: "تم جلب بيانات المستخدم بنجاح",
 
         user,
-
     });
-
 });
 
 // ============ Change Phone Number to New One =============
@@ -522,107 +480,86 @@ export const changePhoneNumber = AsyncHandler(async (req, res, next) => {
     }
 
     console.log(otp);
-    
+
     res.status(200).json({
         status: "success",
         message: "تم إرسال رمز التحقق إلى رقم الهاتف الجديد",
     });
 });
 
-
 // @Desc Verify Changed Phone Number
 // @Route POST : /api/auth/verify-change-phone
 // @Access Private
-export const verifyChangePhoneNumber = AsyncHandler(
-    async (req, res, next) => {
-        const {otp} = req.body;
+export const verifyChangePhoneNumber = AsyncHandler(async (req, res, next) => {
+    const {otp} = req.body;
 
-        // Hash OTP
-        const hashedOTP = hashOTP(otp);
+    // Hash OTP
+    const hashedOTP = hashOTP(otp);
 
-        // Check user
-        const {data: user, error} = await supabase
-            .from("user")
-            .select("*")
-            .eq("user_id", req.user.user_id)
-            .eq("phone_otp", hashedOTP)
-            .gt("phone_otp_expires", new Date().toISOString())
-            .single();
+    // Check user
+    const {data: user, error} = await supabase
+        .from("user")
+        .select("*")
+        .eq("user_id", req.user.user_id)
+        .eq("phone_otp", hashedOTP)
+        .gt("phone_otp_expires", new Date().toISOString())
+        .single();
 
-        if (!user || error)
-            return next(
-                new ApiError(
-                    "رمز التحقق غير صحيح أو انتهت صلاحيته",
-                    400,
-                ),
-            );
+    if (!user || error)
+        return next(new ApiError("رمز التحقق غير صحيح أو انتهت صلاحيته", 400));
 
-        // Update phone
-        const {error: updateError} = await supabase
-            .from("user")
-            .update({
-                phone_number: user.new_phone_number,
-                new_phone_number: null,
-                phone_otp: null,
-                phone_otp_expires: null,
-            })
-            .eq("user_id", user.user_id);
+    // Update phone
+    const {error: updateError} = await supabase
+        .from("user")
+        .update({
+            phone_number: user.new_phone_number,
+            new_phone_number: null,
+            phone_otp: null,
+            phone_otp_expires: null,
+        })
+        .eq("user_id", user.user_id);
 
-        if (updateError)
-            return next(
-                new ApiError(
-                    "حدث خطأ أثناء تغيير رقم الهاتف",
-                    500,
-                ),
-            );
+    if (updateError)
+        return next(new ApiError("حدث خطأ أثناء تغيير رقم الهاتف", 500));
 
-        res.status(200).json({
-            status: "success",
-            message: "تم تغيير رقم الهاتف بنجاح",
-        });
-    },
-);
+    res.status(200).json({
+        status: "success",
+        message: "تم تغيير رقم الهاتف بنجاح",
+    });
+});
 
 // @Desc Resend Change Phone OTP
 // @Route POST : /api/auth/resend-change-phone-otp
 // @Access Private
-export const resendChangePhoneOTP = AsyncHandler(
-    async (req, res, next) => {
-        const {data: user, error} = await supabase
-            .from("user")
-            .select("*")
-            .eq("user_id", req.user.user_id)
-            .single();
+export const resendChangePhoneOTP = AsyncHandler(async (req, res, next) => {
+    const {data: user, error} = await supabase
+        .from("user")
+        .select("*")
+        .eq("user_id", req.user.user_id)
+        .single();
 
-        if (!user || error)
-            return next(new ApiError("المستخدم غير موجود", 404));
+    if (!user || error) return next(new ApiError("المستخدم غير موجود", 404));
 
-        if (!user.new_phone_number)
-            return next(
-                new ApiError(
-                    "لا يوجد طلب تغيير رقم هاتف",
-                    400,
-                ),
-            );
+    if (!user.new_phone_number)
+        return next(new ApiError("لا يوجد طلب تغيير رقم هاتف", 400));
 
-        const {otp, hashedOTP, expires} = generateOTPData();
+    const {otp, hashedOTP, expires} = generateOTPData();
 
-        await supabase
-            .from("user")
-            .update({
-                phone_otp: hashedOTP,
-                phone_otp_expires: expires,
-            })
-            .eq("user_id", user.user_id);
+    await supabase
+        .from("user")
+        .update({
+            phone_otp: hashedOTP,
+            phone_otp_expires: expires,
+        })
+        .eq("user_id", user.user_id);
 
-        await sendOTP(user.new_phone_number, otp);
+    await sendOTP(user.new_phone_number, otp);
 
-        res.status(200).json({
-            status: "success",
-            message: "تم إعادة إرسال رمز التحقق",
-        });
-    },
-);
+    res.status(200).json({
+        status: "success",
+        message: "تم إعادة إرسال رمز التحقق",
+    });
+});
 
 // ============ Forgetten Password Code ===========
 

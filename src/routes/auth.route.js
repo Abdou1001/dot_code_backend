@@ -1,19 +1,26 @@
 import express from "express";
 import {
     adminLogin,
-    changePhoneNumber,
-    forgetPassword,
+    createSendToken,
     getMe,
     login,
     logout,
+} from "../controller/auth/session.controller.js";
+import {
     register,
-    resendChangePhoneOTP,
     resendOTP,
-    resetPassword,
-    verifyChangePhoneNumber,
-    verifyPasswordResetCode,
     verifyPhoneOTP,
-} from "../controller/auth.controller.js";
+} from "../controller/auth/registration.controller.js";
+import {
+    changePhoneNumber,
+    resendChangePhoneOTP,
+    verifyChangePhoneNumber,
+} from "../controller/auth/phone.controller.js";
+import {
+    forgetPassword,
+    resetPassword,
+    verifyPasswordResetCode,
+} from "../controller/auth/password.controller.js";
 import {
     loginSchema,
     registerSchema,
