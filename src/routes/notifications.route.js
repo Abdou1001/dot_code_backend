@@ -5,11 +5,13 @@ import {optionalProtect} from "../middlewares/auth.middleware.js";
 import {
     getNotifications,
     getOneNotification,
+} from "../controller/notifications/read.controller.js";
+import {
     markNotificationAsRead,
     markAllNotificationsAsRead,
     deleteNotification,
     deleteAllNotifications,
-} from "../controller/notifications.controller.js";
+} from "../controller/notifications/management.controller.js";
 
 const router = express.Router();
 

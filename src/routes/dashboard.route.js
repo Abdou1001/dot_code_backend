@@ -5,7 +5,7 @@ import {protect, allowedTo} from "../middlewares/auth.middleware.js";
 import {
     statisticsDashboard,
     appointmentsChart,
-} from "../controller/dashboard.controller.js";
+} from "../controller/dashboard/read.controller.js";
 
 // api/dashboard
 
