@@ -2,18 +2,20 @@ import express from "express";
 import {validate} from "../middlewares/validation.middleware.js";
 import {allowedTo, protect} from "../middlewares/auth.middleware.js";
 import {
-    changeDoctorStatus,
     getDoctorsInfo,
     getOneDoctorInfo,
+} from "../controller/doctors/read.controller.js";
+import {
+    changeDoctorStatus,
     insertDoctor,
     toggleDoctorVisibility,
     updateDoctor,
-} from "../controller/doctor.controller.js";
+} from "../controller/doctors/management.controller.js";
 import {
     insertDoctorSchema,
     updateDoctorSchema,
 } from "../validations/doctors.validation.js";
-import { uploadSingleImage } from "../middlewares/upload.middleware.js";
+import {uploadSingleImage} from "../middlewares/upload.middleware.js";
 
 // api/doctors/{router}
 
