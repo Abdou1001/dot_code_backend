@@ -7,15 +7,21 @@ import {
     uploadAndProcessImage,
 } from "../imageUpload.service.js";
 import ApiError from "../../utils/ApiError.js";
+import {validateAppointmentBookingWindow} from "./bookingWindow.service.js";
 import {
     getScheduleForAppointment,
     platform_fee_,
+    validateAppointmentDepartment,
     validateAppointmentDetails,
 } from "./appointment.helpers.js";
 
+/**
+ * Creates an appointment after validating its booking window, department, and schedule.
+ */
 export const createAppointmentForUser = async ({body, userId, file}) => {
     const {
         schedule_id,
+        depart_id,
         patient_name,
         patient_phone,
         patient_age,
@@ -26,12 +32,11 @@ export const createAppointmentForUser = async ({body, userId, file}) => {
     let payment_receipt = null;
 
     try {
-        payment_receipt = await uploadAndProcessImage(
-            STORAGE_BUCKETS.PAYMENT_RECEIPTS,
-            file,
-        );
+        validateAppointmentBookingWindow(appointment_date);
 
         const schedule = await getScheduleForAppointment(schedule_id);
+
+        await validateAppointmentDepartment({depart_id, schedule});
 
         await validateAppointmentDetails({
             schedule,
@@ -41,6 +46,11 @@ export const createAppointmentForUser = async ({body, userId, file}) => {
             appointment_date,
         });
 
+        payment_receipt = await uploadAndProcessImage(
+            STORAGE_BUCKETS.PAYMENT_RECEIPTS,
+            file,
+        );
+
         const doctor_fee = schedule.doctor.consultation_fee;
         const platform_fee = platform_fee_;
 
@@ -49,6 +59,7 @@ export const createAppointmentForUser = async ({body, userId, file}) => {
             .insert({
                 user_id: userId,
                 schedule_id,
+                depart_id,
                 patient_name,
                 patient_phone,
                 patient_age,

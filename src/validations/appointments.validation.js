@@ -12,6 +12,11 @@ const appointmentObject = z.object({
         .int("معرف الدوام غير صالح")
         .positive("معرف الدوام غير صالح"),
 
+    depart_id: z.coerce
+        .number("يجب تحديد القسم الطبي لإتمام الحجز.")
+        .int("معرف القسم الطبي غير صالح")
+        .positive("معرف القسم الطبي غير صالح"),
+
     patient_name: z
         .string( "اسم المريض مطلوب")
         .trim()
@@ -38,46 +43,31 @@ const appointmentObject = z.object({
     notes: z.string().trim().max(500, "الملاحظات طويلة جدًا").optional(),
 
     appointment_date: z
-        .string( "تاريخ الموعد مطلوب")
-        .regex(/^\d{4}-\d{2}-\d{2}$/, "صيغة التاريخ غير صحيحة"),
+        .string( "تاريخ الموعد مطلوب"),
 });
 
 /* =========================
    Insert Appointment Validation
 ========================= */
 
-export const insertAppointmentSchema = appointmentObject.superRefine(
-    (data, ctx) => {
-        const appointmentDate = new Date(data.appointment_date);
-        appointmentDate.setHours(0, 0, 0, 0);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (isNaN(appointmentDate.getTime())) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["appointment_date"],
-                message: "تاريخ الموعد غير صالح",
-            });
-        }
-
-        if (appointmentDate < today) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["appointment_date"],
-                message: "لا يمكن الحجز بتاريخ سابق",
-            });
-        }
-    },
-);
+export const insertAppointmentSchema = appointmentObject;
 
 /* =========================
    Update Appointment Validation
 ========================= */
 
-export const updateAppointmentSchema = appointmentObject
+const patientPersonalInformationObject = appointmentObject
+    .pick({
+        patient_name: true,
+        patient_phone: true,
+        patient_age: true,
+        patient_gender: true,
+        notes: true,
+    })
     .partial()
+    .passthrough();
+
+export const updateAppointmentSchema = patientPersonalInformationObject
     .superRefine((data, ctx) => {
         if (Object.keys(data).length === 0) {
             ctx.addIssue({
@@ -86,29 +76,6 @@ export const updateAppointmentSchema = appointmentObject
             });
         }
 
-        if (data.appointment_date) {
-            const appointmentDate = new Date(data.appointment_date);
-            appointmentDate.setHours(0, 0, 0, 0);
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (isNaN(appointmentDate.getTime())) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ["appointment_date"],
-                    message: "تاريخ الموعد غير صالح",
-                });
-            }
-
-            if (appointmentDate < today) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ["appointment_date"],
-                    message: "لا يمكن اختيار تاريخ سابق",
-                });
-            }
-        }
     });
 
 /* =========================

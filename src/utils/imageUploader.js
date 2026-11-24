@@ -1,27 +1,34 @@
 import sharp from "sharp";
 import crypto from "crypto";
 
-// Resize & compress image
+/**
+ * Resize, optimize, and convert an uploaded image to WebP.
+ *
+ * @param {Buffer} fileBuffer - Original image buffer.
+ * @returns {Promise<{fileName: string, buffer: Buffer}>}
+ */
 export const processImage = async (fileBuffer) => {
-    // Random image name
-    const fileName = crypto.randomUUID() + ".webp";
+    // Generate a unique file name
+    const fileName = `${crypto.randomUUID()}.webp`;
 
-    // Compress image
-    const buffer = await sharp(fileBuffer)
-        // reduce size of img 4000px => 1200px
+    // Resize, rotate, and compress the image
+    const buffer = await sharp(fileBuffer, {
+        limitInputPixels: 25_000_000,
+        failOn: "error",
+    })
+        .rotate()
         .resize({
             width: 1200,
             withoutEnlargement: true,
         })
-        // change extension img to webp qualty 80%
         .webp({
             quality: 80,
+            effort: 4,
         })
         .toBuffer();
 
     return {
         fileName,
-
         buffer,
     };
 };

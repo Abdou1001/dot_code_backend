@@ -70,6 +70,51 @@ export const getScheduleForAppointment = async (schedule_id) => {
     return schedule;
 };
 
+/**
+ * Validates that a department is available and assigned to the schedule's doctor.
+ */
+export const validateAppointmentDepartment = async ({depart_id, schedule}) => {
+    const {data: department, error: departmentError} = await supabase
+        .from("department")
+        .select("*")
+        .eq("depart_id", depart_id)
+        .single();
+
+    if (!department || departmentError)
+        throw new ApiError("القسم الطبي المحدد غير موجود.", 404);
+
+    // Some deployments use status while others use is_active for department availability.
+    if (
+        ("status" in department && department.status !== "active") ||
+        department.is_active === false
+    ) {
+        throw new ApiError("القسم الطبي المحدد غير متاح للحجز حاليًا.", 400);
+    }
+
+    if (!schedule.doctor || schedule.doctor_id !== schedule.doctor.doctor_id) {
+        throw new ApiError(
+            "جدول دوام الطبيب غير متوافق مع القسم الطبي المحدد.",
+            400,
+        );
+    }
+
+    const {data: doctorDepartment, error: doctorDepartmentError} = await supabase
+        .from("doctor_department")
+        .select("doctor_deprtment_id")
+        .eq("doctor_id", schedule.doctor_id)
+        .eq("depart_id", depart_id)
+        .maybeSingle();
+
+    if (doctorDepartmentError)
+        throw new ApiError("حدث خطأ أثناء التحقق من القسم الطبي.", 500);
+
+    if (!doctorDepartment)
+        throw new ApiError(
+            "الطبيب المحدد غير مرتبط بالقسم الطبي المختار.",
+            400,
+        );
+};
+
 export const validateAppointmentDetails = async ({
     schedule,
     schedule_id,

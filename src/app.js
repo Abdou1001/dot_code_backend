@@ -8,6 +8,7 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import compression from "compression";
+import hpp from "hpp";
 
 // Routes
 import { apiRateLimit } from "./middlewares/rateLimit.middleware.js";
@@ -49,11 +50,16 @@ app.use(
     }),
 );
 
-// read json
-app.use(express.json());
+// Parse JSON requests
+app.use(express.json({
+    limit: "100kb",
+}));
 
-// read form data
-app.use(express.urlencoded({extended: true}));
+// Parse URL-encoded form data
+app.use(express.urlencoded({
+    extended: true,
+    limit: "20kb",
+}));
 
 // To put token in cookie
 app.use(cookieParser());
@@ -61,8 +67,12 @@ app.use(cookieParser());
 // compressoin JSON size
 app.use(compression());
 
+// prevent from HTTP Parameter Pollution
+app.use(hpp());
+
 // Rate Limit لجميع API
 app.use("/api", apiRateLimit);
+
 // ========== Routes ============
 // Auth
 app.use("/api/auth", AuthRoutes);
