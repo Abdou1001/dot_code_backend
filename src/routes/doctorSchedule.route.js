@@ -1,14 +1,16 @@
 import express from "express";
-import { validate } from "../middlewares/validation.middleware.js";
-import { allowedTo, protect } from "../middlewares/auth.middleware.js";
+import {validate} from "../middlewares/validation.middleware.js";
+import {allowedTo, protect} from "../middlewares/auth.middleware.js";
+import {
+    getDoctorSchedulesInfo,
+    getDoctorsSchedulesInfo,
+} from "../controller/doctorsSchedules/read.controller.js";
 import {
     assignDoctorsSchedules,
     changeDoctorScheduleStatus,
     deleteDoctorsSchedules,
-    getDoctorSchedulesInfo,
-    getDoctorsSchedulesInfo,
     updateDoctorsSchedules,
-} from "../controller/doctorsSchedules.controller.js";
+} from "../controller/doctorsSchedules/management.controller.js";
 import {
     insertDoctorScheduleSchema,
     updateDoctorScheduleSchema,
