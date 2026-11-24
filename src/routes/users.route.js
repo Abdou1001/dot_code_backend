@@ -1,8 +1,24 @@
 import express from "express";
-import { validate } from "../middlewares/validation.middleware.js";
-import { allowedTo, protect } from "../middlewares/auth.middleware.js";
-import { changeMyPassword, changeUserRole, changeUserStatus, getMyProfile, getOneUserInfo, getUsersInfo, updateMyProfile, updateUser } from "../controller/users.controller.js";
-import { changePasswordSchema, changeUserRoleSchema, updateMyProfileSchema, updateUserSchema } from "../validations/users.validation.js";
+import {validate} from "../middlewares/validation.middleware.js";
+import {allowedTo, protect} from "../middlewares/auth.middleware.js";
+import {
+    getMyProfile,
+    getOneUserInfo,
+    getUsersInfo,
+} from "../controller/users/read.controller.js";
+import {
+    changeMyPassword,
+    changeUserRole,
+    changeUserStatus,
+    updateMyProfile,
+    updateUser,
+} from "../controller/users/management.controller.js";
+import {
+    changePasswordSchema,
+    changeUserRoleSchema,
+    updateMyProfileSchema,
+    updateUserSchema,
+} from "../validations/users.validation.js";
 
 // api/users/{router}
 
@@ -17,7 +33,13 @@ router
     .patch("/change-password", protect, validate(changePasswordSchema), changeMyPassword)
 
     .get("/:id", protect, allowedTo("admin"), getOneUserInfo)
-    .put("/:id", protect, allowedTo("admin"),validate(updateUserSchema), updateUser)
+    .put(
+        "/:id",
+        protect,
+        allowedTo("admin"),
+        validate(updateUserSchema),
+        updateUser,
+    )
     .patch("/:id/status", protect, allowedTo("admin"), changeUserStatus)
     .patch("/:id/role", protect, allowedTo("admin"), validate(changeUserRoleSchema), changeUserRole)
 
