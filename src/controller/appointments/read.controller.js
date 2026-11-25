@@ -18,6 +18,7 @@ export const getAppointmentsInfo = AsyncHandler(async (req, res) => {
         from,
         to,
         queryParams: req.query,
+        user: req.user,
     });
 
     res.status(200).json({
@@ -32,7 +33,7 @@ export const getAppointmentsInfo = AsyncHandler(async (req, res) => {
 // @Route GET : /api/appointments/:id
 // @Access Private (Admin, Reception)
 export const getOneAppointmentInfo = AsyncHandler(async (req, res) => {
-    const appointment = await getAppointment(req.params.id);
+    const appointment = await getAppointment(req.params.id, req.user);
     res.status(200).json({
         status: "success",
         message: "تم جلب الحجز بنجاح",
@@ -52,6 +53,7 @@ export const getMyAppointments = AsyncHandler(async (req, res) => {
         from,
         to,
         queryParams: req.query,
+        user: req.user,
     });
 
     res.status(200).json({
@@ -68,6 +70,7 @@ export const getMyAppointments = AsyncHandler(async (req, res) => {
 export const getPendingAppointments = AsyncHandler(async (req, res) => {
     const {appointments, count} = await getPendingAppointmentsForReception(
         req.query.keyword || "",
+        req.user,
     );
 
     res.status(200).json({

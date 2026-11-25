@@ -5,13 +5,23 @@ import {
     formatAppointments,
     selectStatment,
 } from "./appointment.helpers.js";
+import {
+    getAuthorizedReceptionDepartmentIds,
+    restrictAppointmentsForReception,
+    assertReceptionAppointmentAccess,
+} from "./receptionAuthorization.service.js";
+import {getReceptionPendingDates} from "./receptionDate.service.js";
 
+/**
+ * Retrieves appointments with filters, pagination, and Reception department restrictions.
+ */
 export const getAppointments = async ({
     page,
     limit,
     from,
     to,
     queryParams,
+    user,
 }) => {
     const {
         keyword = "",
@@ -27,6 +37,9 @@ export const getAppointments = async ({
     let query = supabase
         .from("appointment")
         .select(selectStatment, {count: "exact"});
+
+    const departmentIds = await getAuthorizedReceptionDepartmentIds(user);
+    query = restrictAppointmentsForReception(query, departmentIds);
 
     if (keyword) {
         const {data: doctors} = await supabase
@@ -81,7 +94,8 @@ export const getAppointments = async ({
     return {appointments, count};
 };
 
-export const getAppointment = async (id) => {
+/** Retrieves one appointment after applying Reception department authorization. */
+export const getAppointment = async (id, user) => {
     const {data: appointment, error} = await supabase
         .from("appointment")
         .select(selectStatment, {count: "exact"})
@@ -91,11 +105,14 @@ export const getAppointment = async (id) => {
     if (!appointment || error)
         throw new ApiError("الحجز غير موجود، حاول مرة اخرى", 404);
 
+    await assertReceptionAppointmentAccess(appointment, user);
+
     await formatAppointment(appointment);
 
     return appointment;
 };
 
+/** Retrieves a user's appointments while retaining Reception department scope. */
 export const getUserAppointments = async ({
     userId,
     page,
@@ -103,6 +120,7 @@ export const getUserAppointments = async ({
     from,
     to,
     queryParams,
+    user,
 }) => {
     const {
         keyword = "",
@@ -117,6 +135,9 @@ export const getUserAppointments = async ({
         .from("appointment")
         .select(selectStatment, {count: "exact"})
         .eq("user_id", userId);
+
+    const departmentIds = await getAuthorizedReceptionDepartmentIds(user);
+    query = restrictAppointmentsForReception(query, departmentIds);
 
     if (keyword) {
         const {data: doctors} = await supabase
@@ -175,20 +196,21 @@ export const getUserAppointments = async ({
     return {appointments, count};
 };
 
-export const getPendingAppointmentsForReception = async (keyword) => {
-    const now = new Date();
-    const today = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    const tomorrow = new Date(today);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+/**
+ * Retrieves today's and tomorrow's pending appointments for authorized departments.
+ */
+export const getPendingAppointmentsForReception = async (keyword, user) => {
+    const {today, tomorrow} = getReceptionPendingDates();
 
     let query = supabase
         .from("appointment")
         .select(selectStatment, {count: "exact"})
         .eq("status", "pending")
-        .gte("appointment_date", today.toISOString().split("T")[0])
-        .lte("appointment_date", tomorrow.toISOString().split("T")[0]);
+        .gte("appointment_date", today)
+        .lte("appointment_date", tomorrow);
+
+    const departmentIds = await getAuthorizedReceptionDepartmentIds(user);
+    query = restrictAppointmentsForReception(query, departmentIds);
 
     if (keyword) query = query.ilike("patient_name", `%${keyword}%`);
 

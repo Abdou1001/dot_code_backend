@@ -10,6 +10,7 @@ export const updateAppointment = AsyncHandler(async (req, res) => {
         userId: req.user.user_id,
         body: req.body,
         file: req.file,
+        user: req.user,
     });
 
     res.status(200).json({

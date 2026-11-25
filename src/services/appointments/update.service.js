@@ -6,6 +6,7 @@ import {
     formatAppointment,
     selectStatment,
 } from "./appointment.helpers.js";
+import {assertReceptionAppointmentAccess} from "./receptionAuthorization.service.js";
 
 const PATIENT_EDITABLE_FIELDS = [
     "patient_name",
@@ -21,7 +22,7 @@ const PROTECTED_UPDATE_MESSAGE =
 /**
  * Updates only the personal information attached to a patient's pending appointment.
  */
-export const updateUserAppointment = async ({id, userId, body, file}) => {
+export const updateUserAppointment = async ({id, userId, body, file, user}) => {
     const protectedFields = Object.keys(body).filter(
         (field) => !PATIENT_EDITABLE_FIELDS.includes(field),
     );
@@ -38,6 +39,8 @@ export const updateUserAppointment = async ({id, userId, body, file}) => {
 
     if (!currentAppointment || currentError)
         throw new ApiError("الحجز غير موجود", 404);
+
+    await assertReceptionAppointmentAccess(currentAppointment, user);
 
     if (currentAppointment.status !== "pending")
         throw new ApiError("لا يمكن تعديل الحجز بعد مراجعته", 400);

@@ -11,6 +11,7 @@ export const changeAppointmentsStatus = AsyncHandler(async (req, res) => {
     const appointment = await changeAppointmentStatus({
         id: req.params.id,
         ...req.body,
+        user: req.user,
     });
 
     res.status(200).json({
@@ -27,6 +28,7 @@ export const cancelAppointment = AsyncHandler(async (req, res) => {
     const appointment = await cancelUserAppointment({
         id: req.params.id,
         userId: req.user.user_id,
+        user: req.user,
     });
 
     res.status(200).json({

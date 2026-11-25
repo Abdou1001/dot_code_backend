@@ -6,8 +6,10 @@ import {
     invalidateAppointmentCache,
     selectStatment,
 } from "./appointment.helpers.js";
+import {assertReceptionAppointmentAccess} from "./receptionAuthorization.service.js";
 
-export const changeAppointmentStatus = async ({id, status, admin_notes}) => {
+/** Changes an appointment status after Reception department authorization. */
+export const changeAppointmentStatus = async ({id, status, admin_notes, user}) => {
     const allowedStatuses = ["pending", "approved", "rejected", "cancelled"];
 
     if (!allowedStatuses.includes(status))
@@ -20,6 +22,9 @@ export const changeAppointmentStatus = async ({id, status, admin_notes}) => {
         .single();
 
     if (!appointment || error) throw new ApiError("الحجز غير موجود", 404);
+
+    await assertReceptionAppointmentAccess(appointment, user);
+
     if (appointment.status === "cancelled")
         throw new ApiError("لا يمكن تعديل حالة حجز ملغي", 400);
     if (appointment.status === status)
@@ -103,7 +108,8 @@ export const changeAppointmentStatus = async ({id, status, admin_notes}) => {
     return changedAppointment;
 };
 
-export const cancelUserAppointment = async ({id, userId}) => {
+/** Cancels a user's appointment after Reception department authorization. */
+export const cancelUserAppointment = async ({id, userId, user}) => {
     const {data: appointment, error} = await supabase
         .from("appointment")
         .select(selectStatment)
@@ -112,6 +118,8 @@ export const cancelUserAppointment = async ({id, userId}) => {
         .single();
 
     if (!appointment || error) throw new ApiError("الحجز غير موجود", 404);
+
+    await assertReceptionAppointmentAccess(appointment, user);
 
     if (
         appointment.status === "approved" ||
