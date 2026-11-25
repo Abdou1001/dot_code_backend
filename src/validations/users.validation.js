@@ -74,6 +74,29 @@ export const changeUserRoleSchema = z.object({
 });
 
 /* =========================
+   Reception Departments
+========================= */
+
+export const updateReceptionDepartmentsSchema = z
+    .object({
+        depart_ids: z.array(
+            z.coerce
+                .number("معرف القسم غير صالح")
+                .int("معرف القسم غير صالح")
+                .positive("معرف القسم غير صالح"),
+        ),
+    })
+    .superRefine((data, ctx) => {
+        if (new Set(data.depart_ids).size !== data.depart_ids.length) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["depart_ids"],
+                message: "لا يمكن تكرار الأقسام المحددة.",
+            });
+        }
+    });
+
+/* =========================
    Change Password
 ========================= */
 

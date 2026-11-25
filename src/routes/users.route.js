@@ -10,13 +10,16 @@ import {
     changeMyPassword,
     changeUserRole,
     changeUserStatus,
+    getReceptionDepartments,
     updateMyProfile,
+    updateReceptionDepartments,
     updateUser,
 } from "../controller/users/management.controller.js";
 import {
     changePasswordSchema,
     changeUserRoleSchema,
     updateMyProfileSchema,
+    updateReceptionDepartmentsSchema,
     updateUserSchema,
 } from "../validations/users.validation.js";
 
@@ -24,13 +27,17 @@ import {
 
 const router = express.Router();
 
-
 router
     .get("/", protect, allowedTo("admin"), getUsersInfo)
 
     .get("/profile", protect, getMyProfile)
     .put("/profile", protect, validate(updateMyProfileSchema), updateMyProfile)
-    .patch("/change-password", protect, validate(changePasswordSchema), changeMyPassword)
+    .patch(
+        "/change-password",
+        protect,
+        validate(changePasswordSchema),
+        changeMyPassword,
+    )
 
     .get("/:id", protect, allowedTo("admin"), getOneUserInfo)
     .put(
@@ -41,10 +48,25 @@ router
         updateUser,
     )
     .patch("/:id/status", protect, allowedTo("admin"), changeUserStatus)
-    .patch("/:id/role", protect, allowedTo("admin"), validate(changeUserRoleSchema), changeUserRole)
-
-
-
-
+    .patch(
+        "/:id/role",
+        protect,
+        allowedTo("admin"),
+        validate(changeUserRoleSchema),
+        changeUserRole,
+    )
+    .get(
+        "/:id/reception-departments",
+        protect,
+        allowedTo("admin"),
+        getReceptionDepartments,
+    )
+    .put(
+        "/:id/reception-departments",
+        protect,
+        allowedTo("admin"),
+        validate(updateReceptionDepartmentsSchema),
+        updateReceptionDepartments,
+    );
 
 export default router;

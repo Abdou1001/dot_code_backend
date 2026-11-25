@@ -3,7 +3,9 @@ import {
     changeMyPassword as changeMyPasswordService,
     changeUserRole as changeUserRoleService,
     changeUserStatus as changeUserStatusService,
+    getReceptionDepartments as getReceptionDepartmentsService,
     updateMyProfile as updateMyProfileService,
+    updateReceptionDepartments as updateReceptionDepartmentsService,
     updateUser as updateUserService,
 } from "../../services/users/management.service.js";
 
@@ -56,6 +58,41 @@ export const changeUserRole = AsyncHandler(async (req, res) => {
         status: "success",
         message: "تم تعديل دور المستخدم بنجاح",
         results: user,
+    });
+});
+
+/**
+ * Get a Reception employee's assigned departments.
+ *
+ * @route GET /api/users/:id/reception-departments
+ * @access Private (Admin)
+ */
+export const getReceptionDepartments = AsyncHandler(async (req, res) => {
+    const departments = await getReceptionDepartmentsService(req.params.id);
+
+    res.status(200).json({
+        status: "success",
+        message: "تم جلب صلاحيات الأقسام بنجاح",
+        results: departments,
+    });
+});
+
+/**
+ * Atomically replace a Reception employee's department assignments.
+ *
+ * @route PUT /api/users/:id/reception-departments
+ * @access Private (Admin)
+ */
+export const updateReceptionDepartments = AsyncHandler(async (req, res) => {
+    const departments = await updateReceptionDepartmentsService(
+        req.params.id,
+        req.body.depart_ids,
+    );
+
+    res.status(200).json({
+        status: "success",
+        message: "تم تحديث صلاحيات الأقسام بنجاح",
+        results: departments,
     });
 });
 
