@@ -1,5 +1,22 @@
 import {z} from "zod";
 import {supabase} from "../config/supabase.js";
+import {isValidYemenPhone} from "../utils/phone.js";
+
+const doctorRelationsSchema = z.union([z.string(), z.array(z.unknown())]);
+const forbiddenDoctorUpdateFields = [
+    "password",
+    "password_hash",
+    "role",
+    "user_id",
+    "phone_verified",
+    "is_active",
+    "is_Active",
+    "phone_otp",
+    "phone_otp_expires",
+    "password_reset_code",
+    "password_reset_expires",
+    "password_changed_at",
+];
 
 /* =========================
    Insert Doctor Validation
@@ -42,17 +59,28 @@ export const insertDoctorSchema = z
             .max(60, "سنوات الخبرة غير صالحة"),
 
         phone_number: z
-            .string()
+            .string("رقم الهاتف مطلوب")
             .trim()
-            .min(7, "رقم الهاتف غير صالح")
-            .max(20)
-            .optional(),
+            .refine(isValidYemenPhone, "رقم الهاتف اليمني غير صالح"),
 
         notes: z.string().max(500, "الملاحظات طويلة جدًا").optional(),
 
         consultation_fee: z.coerce
             .number("سعر الاستشارة مطلوب")
             .positive("سعر الاستشارة غير صالح"),
+
+        password: z
+            .string("كلمة المرور مطلوبة")
+            .min(6, "كلمة المرور يجب أن تكون على الأقل 6 أحرف"),
+
+        date_of_birth: z.coerce.date({
+            required_error: "تاريخ الميلاد مطلوب",
+            invalid_type_error: "تاريخ الميلاد غير صالح",
+        }),
+
+        department_ids: doctorRelationsSchema.optional(),
+
+        schedules: doctorRelationsSchema.optional(),
     })
 
     .superRefine(async (data, ctx) => {
@@ -117,8 +145,7 @@ export const updateDoctorSchema = z
         phone_number: z
             .string()
             .trim()
-            .min(6, "رقم الهاتف غير صالح")
-            .max(20)
+            .refine(isValidYemenPhone, "رقم الهاتف اليمني غير صالح")
             .optional(),
 
         notes: z.string().max(500, "الملاحظات طويلة جدًا").optional(),
@@ -128,12 +155,35 @@ export const updateDoctorSchema = z
             .min(1000)
             .max(50000)
             .positive("سعر الاستشارة غير صالح"),
+
+        date_of_birth: z.coerce
+            .date({
+                invalid_type_error: "تاريخ الميلاد غير صالح",
+            })
+            .optional(),
+
+        department_ids: doctorRelationsSchema.optional(),
+
+        schedules: doctorRelationsSchema.optional(),
     })
+    .passthrough()
+    .superRefine((data, ctx) => {
+        const forbiddenField = forbiddenDoctorUpdateFields.find(
+            (field) => data[field] !== undefined,
+        );
 
-    .refine(
-        (data) => Object.keys(data).length > 0,
+        if (forbiddenField) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [forbiddenField],
+                message: "لا يمكن تعديل بيانات حساب الطبيب المحمية من خلال هذا المسار.",
+            });
+        }
 
-        {
-            message: "يجب إرسال حقل واحد على الأقل للتعديل",
-        },
-    );
+        if (Object.keys(data).length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "يجب إرسال حقل واحد على الأقل للتعديل",
+            });
+        }
+    });

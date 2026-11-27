@@ -5,6 +5,7 @@ import ApiError from "../../utils/ApiError.js";
 import {paginationResult} from "../../utils/pagination.js";
 import {getCache, setCache} from "../cache.service.js";
 import {getPublicImageUrl} from "../storage.service.js";
+import {getLinkedDoctor} from "../doctors/access.service.js";
 
 const daysOrder = {
     "السبت": 1,
@@ -143,4 +144,21 @@ export const getDoctorSchedulesInfo = async (id) => {
             : "لا توجد أوقات دوام لهذا الطبيب",
         results: schedules,
     };
+};
+
+/**
+ * Retrieves schedules belonging to the authenticated doctor's linked record.
+ *
+ * The doctor ID is resolved from the authenticated user rather than request
+ * input, so a Doctor-role account cannot read another doctor's schedules.
+ *
+ * @param {number} userId - Authenticated doctor user ID.
+ * @returns {Promise<object>} Existing schedule response for the linked doctor.
+ */
+export const getDoctorSchedulesForUser = async (userId) => {
+    // 1. Resolve the authorized doctor from the authenticated account.
+    const doctor = await getLinkedDoctor(userId);
+
+    // 2. Reuse the existing per-doctor schedule response and ordering.
+    return getDoctorSchedulesInfo(doctor.doctor_id);
 };

@@ -68,24 +68,45 @@ export const changeUserStatus = async (id, actorId) => {
     return user;
 };
 
-/** Changes a user's role while preventing self-role changes. */
+/**
+ * Changes a user's role while preventing protected Doctor-role changes.
+ *
+ * Delegates target-role protection and Reception department cleanup to the
+ * transactional PostgreSQL RPC, avoiding a separate pre-read of the user.
+ *
+ * @param {number|string} id - Target user ID.
+ * @param {string} role - Requested non-Doctor role.
+ * @param {number|string} actorId - Authenticated Admin user ID.
+ * @returns {Promise<object>} Updated user with the existing selected columns.
+ * @throws {ApiError} When the change is forbidden or the target user is absent.
+ */
 export const changeUserRole = async (id, role, actorId) => {
+    // 1. Preserve the existing restriction against self-role changes.
     if (actorId == id) {
         throw new ApiError("لا يمكنك تغيير صلاحيتك", 400);
     }
 
+    // 2. Let the locked PostgreSQL row enforce Doctor protections atomically.
     const {error: roleError} = await supabase.rpc(
         "change_user_role_and_clear_reception_departments",
         {p_user_id: Number(id), p_role: role},
     );
 
     if (roleError) {
+        if (roleError.message.includes("DOCTOR_ROLE_PROTECTED")) {
+            throw new ApiError(
+                "لا يمكن تغيير صلاحية الطبيب أو تحويل أي مستخدم إلى طبيب من إدارة المستخدمين.",
+                403,
+            );
+        }
+
         if (roleError.message.includes("USER_NOT_FOUND"))
             throw new ApiError("المستخدم غير موجود", 404);
 
         throw new ApiError("حدث خطأ أثناء تغيير صلاحية المستخدم", 400);
     }
 
+    // 3. Return the standard selected user representation after the RPC commits.
     const {data: user, error} = await supabase
         .from("user")
         .select(selectedColumns)

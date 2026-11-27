@@ -91,7 +91,7 @@ BEGIN
         RAISE EXCEPTION 'USER_NOT_FOUND';
     END IF;
 
-    IF p_role NOT IN ('admin', 'reception', 'user') THEN
+    IF p_role NOT IN ('admin', 'reception', 'user', 'doctor') THEN
         RAISE EXCEPTION 'INVALID_ROLE';
     END IF;
 

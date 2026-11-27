@@ -6,6 +6,11 @@ import {
     getOneDoctorInfo,
 } from "../controller/doctors/read.controller.js";
 import {
+    getMyDoctorAppointments,
+    getMyDoctorProfile,
+    getMyDoctorSchedules,
+} from "../controller/doctors/access.controller.js";
+import {
     changeDoctorStatus,
     insertDoctor,
     toggleDoctorVisibility,
@@ -23,6 +28,19 @@ const router = express.Router();
 
 router
     .get("/", getDoctorsInfo)
+    .get("/me", protect, allowedTo("doctor"), getMyDoctorProfile)
+    .get(
+        "/me/appointments",
+        protect,
+        allowedTo("doctor"),
+        getMyDoctorAppointments,
+    )
+    .get(
+        "/me/schedules",
+        protect,
+        allowedTo("doctor"),
+        getMyDoctorSchedules,
+    )
     .post(
         "/",
         protect,

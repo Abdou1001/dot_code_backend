@@ -66,11 +66,14 @@ export const updateUserSchema = updateMyProfileSchema;
 ========================= */
 
 export const changeUserRoleSchema = z.object({
-    role: z.enum(["admin", "reception", "user"], {
+    role: z.enum(["admin", "reception", "user", "doctor"], {
         error: () => ({
             message: "الصلاحية غير صالحة",
         }),
-    }),
+    }).refine(
+        (role) => role !== "doctor",
+        "لا يمكن تغيير صلاحية الطبيب أو تحويل أي مستخدم إلى طبيب من إدارة المستخدمين.",
+    ),
 });
 
 /* =========================
