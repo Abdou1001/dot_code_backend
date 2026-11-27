@@ -1,14 +1,25 @@
 import axios from "axios";
+import {normalizeYemenPhone} from "../utils/phone.js";
 
 const TEXTBEE_API_KEY = process.env.TEXTBEE_API_KEY;
 
-export const sendOTP = async (phoneNumber, otp) => {
+/**
+ * Sends a non-sensitive SMS through the configured TextBee gateway.
+ *
+ * Normalizes the destination using the shared Yemeni phone utility and never
+ * logs message contents, which may contain patient information or OTP values.
+ *
+ * @param {string} phoneNumber - Recipient mobile number.
+ * @param {string} message - SMS body.
+ * @returns {Promise<object>} TextBee delivery response.
+ */
+export const sendSMS = async (phoneNumber, message) => {
     try {
         const {data} = await axios.post(
             "https://api.textbee.dev/api/v1/gateway/send-sms",
             {
-                recipients: [phoneNumber],
-                message: `رمز التحقق الخاص بك هو: ${otp}`,
+                recipients: [normalizeYemenPhone(phoneNumber)],
+                message,
             },
             {
                 headers: {
@@ -18,14 +29,31 @@ export const sendOTP = async (phoneNumber, otp) => {
             },
         );
 
-        console.log("TextBee OTP sent:", data);
-
         return data;
+    } catch (error) {
+        console.error("TextBee SMS Error:", {
+            message: error.message,
+            status: error.response?.status,
+        });
+
+        throw new Error("فشل إرسال الرسالة النصية");
+    }
+};
+
+/**
+ * Sends the existing OTP message without changing its public behavior.
+ *
+ * @param {string} phoneNumber - Recipient mobile number.
+ * @param {string} otp - One-time password to send.
+ * @returns {Promise<object>} TextBee delivery response.
+ */
+export const sendOTP = async (phoneNumber, otp) => {
+    try {
+        return await sendSMS(phoneNumber, `رمز التحقق الخاص بك هو: ${otp}`);
     } catch (error) {
         console.error("TextBee OTP Error:", {
             message: error.message,
             status: error.response?.status,
-            data: error.response?.data,
         });
 
         throw new Error("فشل إرسال رمز التحقق");

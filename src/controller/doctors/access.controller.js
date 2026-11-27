@@ -1,6 +1,9 @@
 import AsyncHandler from "express-async-handler";
 import {paginate, paginationResult} from "../../utils/pagination.js";
-import {getMyDoctorProfile as getMyDoctorProfileService} from "../../services/doctors/access.service.js";
+import {
+    getMyDoctorProfile as getMyDoctorProfileService,
+    toggleDoctorBooking as toggleDoctorBookingService,
+} from "../../services/doctors/access.service.js";
 import {getDoctorAppointments} from "../../services/appointments/read.service.js";
 import {getDoctorSchedulesForUser} from "../../services/doctorsSchedules/read.service.js";
 
@@ -78,5 +81,32 @@ export const getMyDoctorSchedules = AsyncHandler(async (req, res) => {
         status: "success",
         message,
         results,
+    });
+});
+
+/**
+ * Toggles booking availability for the authenticated Doctor.
+ *
+ * Uses only the server-authenticated user ID and queues patient notification
+ * work after the transactional booking operation has committed.
+ *
+ * @route PATCH /api/doctors/me/booking
+ * @access Private (Doctor)
+ * @param {object} req - Express request containing the authenticated Doctor.
+ * @param {object} res - Express response used for the booking summary.
+ * @returns {Promise<void>} A successful booking-toggle response.
+ */
+export const toggleMyDoctorBooking = AsyncHandler(async (req, res) => {
+    const booking = await toggleDoctorBookingService(
+        req.user.user_id,
+        req.body.booking_reopen_date,
+    );
+
+    res.status(200).json({
+        status: "success",
+        message: booking.is_booking_open
+            ? "تم فتح حجوزات الطبيب بنجاح."
+            : "تم إيقاف حجوزات الطبيب بنجاح.",
+        data: booking,
     });
 });

@@ -2,7 +2,8 @@ import "dotenv/config";
 import app from "./app.js";
 import "./config/redis.js";
 import {startNotificationJobs} from "./jobs/notification.job.js";
-import { startAppointmentNotificationJobs } from "./jobs/appointmentReminder.job.js";
+import {startAppointmentNotificationJobs} from "./jobs/appointmentReminder.job.js";
+import {startDoctorBookingNotificationJob} from "./jobs/doctorBookingNotification.job.js";
 
 const PORT = process.env.PORT || 5175;
 
@@ -11,6 +12,7 @@ const server = app.listen(PORT, () => {
 
     startNotificationJobs();
     startAppointmentNotificationJobs();
+    startDoctorBookingNotificationJob();
 });
 
 // handle Rejection out side express

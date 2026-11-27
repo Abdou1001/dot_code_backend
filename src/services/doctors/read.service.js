@@ -5,6 +5,7 @@ import ApiError from "../../utils/ApiError.js";
 import {paginationResult} from "../../utils/pagination.js";
 import {getCache, setCache} from "../cache.service.js";
 import {getPublicImageUrl} from "../storage.service.js";
+import {applyEffectiveDoctorBookingState} from "./booking.service.js";
 
 /**
  * Retrieves paginated doctors with filters, sorting, department relationships,
@@ -34,6 +35,7 @@ export const getDoctorsInfo = async (queryParams) => {
 
     if (cachedDoctors) {
         cachedDoctors.results.forEach((doctor) => {
+            applyEffectiveDoctorBookingState(doctor);
             doctor.path_image = getPublicImageUrl(
                 STORAGE_BUCKETS.DOCTORS,
                 doctor.path_image,
@@ -101,6 +103,7 @@ export const getDoctorsInfo = async (queryParams) => {
     );
 
     doctors.forEach((doctor) => {
+        applyEffectiveDoctorBookingState(doctor);
         doctor.path_image = getPublicImageUrl(
             STORAGE_BUCKETS.DOCTORS,
             doctor.path_image,
@@ -125,6 +128,7 @@ export const getOneDoctorInfo = async (id) => {
     const cachedDoctor = await getCache(cacheKey);
 
     if (cachedDoctor) {
+        applyEffectiveDoctorBookingState(cachedDoctor);
         cachedDoctor.path_image = getPublicImageUrl(
             STORAGE_BUCKETS.DOCTORS,
             cachedDoctor.path_image,
@@ -169,6 +173,7 @@ export const getOneDoctorInfo = async (id) => {
 
     await setCache(cacheKey, doctor, CACHE_TTL.DOCTORS);
 
+    applyEffectiveDoctorBookingState(doctor);
     doctor.path_image = getPublicImageUrl(
         STORAGE_BUCKETS.DOCTORS,
         doctor.path_image,

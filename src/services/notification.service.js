@@ -129,6 +129,45 @@ export const sendPushNotification = async ({
     return results;
 };
 
+/**
+ * Sends a push notification to one user's currently registered devices.
+ *
+ * This delivery-only helper intentionally does not create an in-app
+ * notification, allowing a transactional outbox to persist that record before
+ * any external Expo request is attempted.
+ *
+ * @param {object} payload - Push notification delivery data.
+ * @param {number} payload.userId - Patient user ID.
+ * @param {string} payload.title - Notification title.
+ * @param {string} payload.message - Notification body.
+ * @param {object} [payload.data] - Mobile navigation metadata.
+ * @returns {Promise<object>} Device and Expo delivery summary.
+ */
+export const sendPushNotificationToUser = async ({
+    userId,
+    title,
+    message,
+    data = {},
+}) => {
+    const devices = await getUserDevices(userId);
+    const tokens = devices
+        .map((device) => device.expo_push_token)
+        .filter(Boolean);
+
+    if (!tokens.length) {
+        return {devices_count: devices.length, push_result: null};
+    }
+
+    const pushResult = await sendPushNotification({
+        tokens,
+        title,
+        message,
+        data,
+    });
+
+    return {devices_count: devices.length, push_result: pushResult};
+};
+
 // ============================================================
 // Send notification to specific user
 // ============================================================

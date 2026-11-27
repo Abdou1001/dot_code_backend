@@ -16,7 +16,57 @@ import {
 } from "./appointment.helpers.js";
 
 /**
+ * Creates an appointment through the database booking-lock transaction.
+ *
+ * Locks the Doctor resolved from the schedule so a newly created appointment
+ * cannot race a Doctor booking suspension.
+ *
+ * @param {object} appointmentData - Fully validated appointment fields.
+ * @returns {Promise<object>} Created appointment record.
+ * @throws {ApiError} When booking is currently suspended or insertion fails.
+ */
+const createAppointmentWithBookingLock = async (appointmentData) => {
+    const {data, error} = await supabase.rpc(
+        "create_appointment_with_booking_lock",
+        {p_appointment: appointmentData},
+    );
+
+    if (error?.message?.includes("DOCTOR_BOOKING_CLOSED")) {
+        throw new ApiError("حجوزات هذا الطبيب متوقفة حاليًا.", 400);
+    }
+
+    if (error?.message?.includes("APPOINTMENT_CAPACITY_REACHED")) {
+        throw new ApiError("تم الوصول إلى الحد الأقصى للحجوزات لهذا الدوام", 400);
+    }
+
+    if (error?.message?.includes("APPOINTMENT_SCHEDULE_UNAVAILABLE")) {
+        throw new ApiError("هذا الدوام غير متاح حالياً", 400);
+    }
+
+    if (error?.message?.includes("APPOINTMENT_DOCTOR_UNAVAILABLE")) {
+        throw new ApiError("الطبيب لا يستقبل الحجوزات حالياً", 400);
+    }
+
+    if (error?.message?.includes("APPOINTMENT_DEPARTMENT_INVALID")) {
+        throw new ApiError("القسم الطبي المحدد غير متاح للحجز حاليًا.", 400);
+    }
+
+    if (error) throw new ApiError("حدث خطأ أثناء إنشاء الحجز", 400);
+
+    return Array.isArray(data) ? data[0] : data;
+};
+
+/**
  * Creates an appointment after validating its booking window, department, and schedule.
+ *
+ * Performs the final availability check and insert through a locked PostgreSQL
+ * transaction after image processing, preserving the existing rollback behavior.
+ *
+ * @param {object} payload - Appointment request data and authenticated user context.
+ * @param {object} payload.body - Validated appointment body.
+ * @param {number} payload.userId - Authenticated patient user ID.
+ * @param {object|undefined} payload.file - Optional payment receipt upload.
+ * @returns {Promise<object>} Created appointment.
  */
 export const createAppointmentForUser = async ({body, userId, file}) => {
     const {
@@ -51,34 +101,21 @@ export const createAppointmentForUser = async ({body, userId, file}) => {
             file,
         );
 
-        const doctor_fee = schedule.doctor.consultation_fee;
         const platform_fee = platform_fee_;
 
-        const {data: appointment, error} = await supabase
-            .from("appointment")
-            .insert({
-                user_id: userId,
-                schedule_id,
-                depart_id,
-                patient_name,
-                patient_phone,
-                patient_age,
-                patient_gender,
-                notes,
-                payment_receipt,
-                appointment_date,
-                doctor_fee,
-                platform_fee,
-                total_amount: doctor_fee + platform_fee,
-                status: "pending",
-                admin_notes: null,
-                created_at: new Date(),
-            })
-            .select("*")
-            .single();
-
-        if (!appointment || error)
-            throw new ApiError("حدث خطأ أثناء إنشاء الحجز", 400);
+        const appointment = await createAppointmentWithBookingLock({
+            user_id: userId,
+            schedule_id,
+            depart_id,
+            patient_name,
+            patient_phone,
+            patient_age,
+            patient_gender,
+            notes: notes || null,
+            payment_receipt,
+            appointment_date,
+            platform_fee,
+        });
 
         const appointmentYear = appointment_date
             ? new Date(appointment_date).getFullYear()

@@ -9,6 +9,7 @@ import {
     getMyDoctorAppointments,
     getMyDoctorProfile,
     getMyDoctorSchedules,
+    toggleMyDoctorBooking,
 } from "../controller/doctors/access.controller.js";
 import {
     changeDoctorStatus,
@@ -18,6 +19,7 @@ import {
 } from "../controller/doctors/management.controller.js";
 import {
     insertDoctorSchema,
+    toggleDoctorBookingSchema,
     updateDoctorSchema,
 } from "../validations/doctors.validation.js";
 import {uploadSingleImage} from "../middlewares/upload.middleware.js";
@@ -40,6 +42,13 @@ router
         protect,
         allowedTo("doctor"),
         getMyDoctorSchedules,
+    )
+    .patch(
+        "/me/booking",
+        protect,
+        allowedTo("doctor"),
+        validate(toggleDoctorBookingSchema),
+        toggleMyDoctorBooking,
     )
     .post(
         "/",

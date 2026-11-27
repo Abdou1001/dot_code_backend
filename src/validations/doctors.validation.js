@@ -18,6 +18,50 @@ const forbiddenDoctorUpdateFields = [
     "password_changed_at",
 ];
 
+const bookingReopenDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Checks that a booking suspension date is a real calendar day.
+ *
+ * @param {string} value - Submitted ISO calendar date.
+ * @returns {boolean} True when the date components form a valid calendar day.
+ */
+const isValidBookingReopenDate = (value) => {
+    if (!bookingReopenDatePattern.test(value)) return false;
+
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    return (
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+    );
+};
+
+/**
+ * Checks that a Doctor booking suspension date is not before today's Yemen date.
+ *
+ * @param {string} value - Submitted ISO calendar date.
+ * @returns {boolean} True when the date is today or later in Asia/Aden.
+ */
+const isCurrentOrFutureBookingReopenDate = (value) => {
+    const dateParts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Aden",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(new Date());
+    const parts = Object.fromEntries(
+        dateParts
+            .filter(({type}) => type !== "literal")
+            .map(({type, value: part}) => [type, part]),
+    );
+    const today = `${parts.year}-${parts.month}-${parts.day}`;
+
+    return value >= today;
+};
+
 /* =========================
    Insert Doctor Validation
 ========================= */
@@ -187,3 +231,23 @@ export const updateDoctorSchema = z
             });
         }
     });
+
+/* =========================
+   Doctor Booking
+========================= */
+
+export const toggleDoctorBookingSchema = z
+    .object({
+        booking_reopen_date: z
+            .string()
+            .refine(
+                isValidBookingReopenDate,
+                "تاريخ إعادة فتح الحجوزات غير صالح.",
+            )
+            .refine(
+                isCurrentOrFutureBookingReopenDate,
+                "تاريخ إعادة فتح الحجوزات لا يمكن أن يكون في الماضي.",
+            )
+            .optional(),
+    })
+    .strict("لا يمكن إرسال حقول غير مدعومة لتغيير حالة الحجوزات.");
