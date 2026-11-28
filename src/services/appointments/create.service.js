@@ -10,7 +10,6 @@ import ApiError from "../../utils/ApiError.js";
 import {validateAppointmentBookingWindow} from "./bookingWindow.service.js";
 import {
     getScheduleForAppointment,
-    platform_fee_,
     validateAppointmentDepartment,
     validateAppointmentDetails,
 } from "./appointment.helpers.js";
@@ -101,8 +100,6 @@ export const createAppointmentForUser = async ({body, userId, file}) => {
             file,
         );
 
-        const platform_fee = platform_fee_;
-
         const appointment = await createAppointmentWithBookingLock({
             user_id: userId,
             schedule_id,
@@ -114,7 +111,6 @@ export const createAppointmentForUser = async ({body, userId, file}) => {
             notes: notes || null,
             payment_receipt,
             appointment_date,
-            platform_fee,
         });
 
         const appointmentYear = appointment_date

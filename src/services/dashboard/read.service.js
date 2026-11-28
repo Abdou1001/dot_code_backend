@@ -3,7 +3,17 @@ import {CACHE_KEYS, CACHE_TTL} from "../../config/cache.js";
 import ApiError from "../../utils/ApiError.js";
 import {getCache, setCache} from "../cache.service.js";
 
-const platform_fee_ = Number(process.env.PLATFORM_FEE);
+/**
+ * Sums immutable appointment pricing snapshots returned by PostgreSQL.
+ *
+ * @param {Array<object>|undefined} appointments - Approved appointment rows.
+ * @returns {number} Sum of stored final appointment amounts.
+ */
+const sumAppointmentAmounts = (appointments) =>
+    (appointments || []).reduce(
+        (total, appointment) => total + Number(appointment.total_amount || 0),
+        0,
+    );
 
 /**
  * Retrieves cached or calculated dashboard statistics.
@@ -41,6 +51,8 @@ export const statisticsDashboard = async () => {
             count: acceptedAppointmentsThisMonth,
             error: acceptedThisMonthError,
         },
+        {data: approvedPricing, error: approvedPricingError},
+        {data: monthlyApprovedPricing, error: monthlyApprovedPricingError},
     ] = await Promise.all([
         supabase.from("user").select("*", {count: "exact", head: true}),
         supabase.from("doctor").select("*", {count: "exact", head: true}),
@@ -72,6 +84,15 @@ export const statisticsDashboard = async () => {
             .select("*", {count: "exact", head: true})
             .eq("status", "approved")
             .gte("created_at", firstDay),
+        supabase
+            .from("appointment")
+            .select("total_amount")
+            .eq("status", "approved"),
+        supabase
+            .from("appointment")
+            .select("total_amount")
+            .eq("status", "approved")
+            .gte("created_at", firstDay),
     ]);
 
     if (userError) throw new ApiError("حدث خطأ أثناء جلب عدد المستخدمين", 500);
@@ -87,6 +108,9 @@ export const statisticsDashboard = async () => {
     if (acceptedThisMonthError) {
         throw new ApiError("حدث خطأ أثناء جلب الحجوزات المقبولة لهذا الشهر", 500);
     }
+    if (approvedPricingError || monthlyApprovedPricingError) {
+        throw new ApiError("حدث خطأ أثناء جلب إجمالي مبالغ الحجوزات", 500);
+    }
 
     const results = {
         numberUsers,
@@ -100,8 +124,8 @@ export const statisticsDashboard = async () => {
         cancelledAppointments,
         appointmentsThisMonth,
         acceptedAppointmentsThisMonth,
-        totalRevenue: (acceptedAppointments || 0) * platform_fee_,
-        monthlyRevenue: (acceptedAppointmentsThisMonth || 0) * platform_fee_,
+        totalRevenue: sumAppointmentAmounts(approvedPricing),
+        monthlyRevenue: sumAppointmentAmounts(monthlyApprovedPricing),
     };
 
     await setCache(CACHE_KEYS.DASHBOARD, results, CACHE_TTL.DASHBOARD);

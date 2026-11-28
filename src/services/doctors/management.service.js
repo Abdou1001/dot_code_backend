@@ -41,28 +41,73 @@ const parseRelationArray = (value, fieldName) => {
 /**
  * Builds the professional doctor payload accepted by the account-aware RPCs.
  *
- * Excludes account-only and protected fields so the PostgreSQL functions receive
- * only professional data that belongs to the doctor record.
+ * Excludes account-only and protected fields while preserving consultation fee
+ * and fixed discount values for the account-aware PostgreSQL functions.
  *
  * @param {object} doctorData - Validated Doctor request data.
  * @param {string|null} phoneNumber - Canonical professional phone number.
  * @returns {object} Professional doctor fields.
  */
-const buildDoctorPayload = (doctorData, phoneNumber) => ({
-    full_name: doctorData.full_name,
-    email: doctorData.email || null,
-    bio: doctorData.bio || null,
-    education: doctorData.education || null,
-    gender: doctorData.gender || null,
-    years_exper: doctorData.years_exper
-        ? Number(doctorData.years_exper)
-        : null,
-    phone_number: phoneNumber,
-    notes: doctorData.notes || null,
-    consultation_fee: doctorData.consultation_fee
-        ? Number(doctorData.consultation_fee)
-        : null,
-});
+const buildDoctorPayload = (doctorData, phoneNumber) => {
+    const doctor = {
+        full_name: doctorData.full_name,
+        email: doctorData.email || null,
+        bio: doctorData.bio || null,
+        education: doctorData.education || null,
+        gender: doctorData.gender || null,
+        years_exper: doctorData.years_exper
+            ? Number(doctorData.years_exper)
+            : null,
+        phone_number: phoneNumber,
+        notes: doctorData.notes || null,
+        consultation_fee:
+            doctorData.consultation_fee !== undefined
+                ? Number(doctorData.consultation_fee)
+                : null,
+    };
+
+    // Preserve an existing discount on updates by omitting an unspecified field.
+    if (doctorData.discount_amount !== undefined) {
+        doctor.discount_amount = Number(doctorData.discount_amount);
+    }
+
+    return doctor;
+};
+
+/**
+ * Validates Doctor consultation pricing and fixed discount consistency.
+ *
+ * Uses persisted pricing during updates so changing only one monetary field
+ * cannot make the retained consultation fee or discount invalid.
+ *
+ * @param {object} doctorData - Validated Doctor request fields.
+ * @param {object|undefined} currentDoctor - Existing Doctor pricing on updates.
+ * @returns {void}
+ * @throws {ApiError} When a monetary value is invalid or discount exceeds fee.
+ */
+const validateDoctorPricing = (doctorData, currentDoctor) => {
+    const consultationFee =
+        doctorData.consultation_fee !== undefined
+            ? Number(doctorData.consultation_fee)
+            : Number(currentDoctor?.consultation_fee);
+    const discountAmount =
+        doctorData.discount_amount !== undefined
+            ? Number(doctorData.discount_amount)
+            : Number(currentDoctor?.discount_amount || 0);
+
+    if (
+        !Number.isFinite(consultationFee) ||
+        !Number.isFinite(discountAmount) ||
+        consultationFee < 0 ||
+        discountAmount < 0
+    ) {
+        throw new ApiError("قيمة السعر أو الخصم غير صالحة.", 400);
+    }
+
+    if (discountAmount > consultationFee) {
+        throw new ApiError("قيمة الخصم لا يمكن أن تتجاوز سعر الاستشارة.", 400);
+    }
+};
 
 /**
  * Normalizes and validates a doctor's professional phone number.
@@ -197,16 +242,19 @@ export const insertDoctor = async (doctorData, file) => {
         );
         const schedules = parseRelationArray(doctorData.schedules, "أوقات الدوام");
 
-        // 2. Use the authentication phone format in both account and doctor payloads.
+        // 2. Validate the fixed discount before creating the linked account.
+        validateDoctorPricing(doctorData);
+
+        // 3. Use the authentication phone format in both account and doctor payloads.
         const normalizedPhone = normalizeDoctorPhone(doctorData.phone_number);
 
-        // 3. Hash the initial login password; plaintext never reaches PostgreSQL.
+        // 4. Hash the initial login password; plaintext never reaches PostgreSQL.
         const password_hash = await bcrypt.hash(doctorData.password, 12);
 
-        // 4. Process and upload the doctor profile image.
+        // 5. Process and upload the doctor profile image.
         path_image = await uploadAndProcessImage(STORAGE_BUCKETS.DOCTORS, file);
 
-        // 5. Create the account and all doctor records atomically through PostgreSQL.
+        // 6. Create the account and all doctor records atomically through PostgreSQL.
         const doctorResult = await createDoctorWithAccount({
             doctor: buildDoctorPayload(doctorData, normalizedPhone),
             account: {
@@ -222,7 +270,7 @@ export const insertDoctor = async (doctorData, file) => {
             schedules,
         });
 
-        // 6. Invalidate cached professional and relationship representations.
+        // 7. Invalidate cached professional and relationship representations.
         await Promise.all([
             deleteByPattern("doctors:*"),
             deleteByPattern("doctor-departments:*"),
@@ -243,7 +291,7 @@ export const insertDoctor = async (doctorData, file) => {
 
         return doctorResult;
     } catch (error) {
-        // 7. Remove the uploaded image when the transactional database call fails.
+        // 8. Remove the uploaded image when the transactional database call fails.
         await rollbackUploadedImage(STORAGE_BUCKETS.DOCTORS, path_image);
         throw error;
     }
@@ -273,7 +321,7 @@ export const updateDoctor = async (id, doctorData, file) => {
 
     const {data: currentDoctor, error: currentError} = await supabase
         .from("doctor")
-        .select("doctor_id, path_image")
+        .select("doctor_id, path_image, consultation_fee, discount_amount")
         .eq("doctor_id", id)
         .single();
 
@@ -281,7 +329,10 @@ export const updateDoctor = async (id, doctorData, file) => {
         throw new ApiError("الطبيب غير موجود", 404);
     }
 
-    // 2. Replace the image only after the account-aware RPC succeeds.
+    // 2. Compare partial pricing updates with the persisted complementary value.
+    validateDoctorPricing(doctorData, currentDoctor);
+
+    // 3. Replace the image only after the account-aware RPC succeeds.
     const result = await replaceImage({
         bucket: STORAGE_BUCKETS.DOCTORS,
         currentImage: currentDoctor.path_image,
@@ -297,7 +348,7 @@ export const updateDoctor = async (id, doctorData, file) => {
             }),
     });
 
-    // 3. Invalidate every cached representation affected by relationship updates.
+    // 4. Invalidate every cached representation affected by relationship updates.
     await Promise.all([
         deleteByPattern("doctors:*"),
         deleteByPattern("doctor-departments:*"),

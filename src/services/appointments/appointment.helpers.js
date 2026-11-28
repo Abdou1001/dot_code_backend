@@ -9,7 +9,6 @@ import {
 import ApiError from "../../utils/ApiError.js";
 import normalizeArabicDay from "../../utils/normalizeArabicDay.js";
 
-export const platform_fee_ = Number(process.env.PLATFORM_FEE);
 export const selectStatment = `
     *,
     doctor_schedule (

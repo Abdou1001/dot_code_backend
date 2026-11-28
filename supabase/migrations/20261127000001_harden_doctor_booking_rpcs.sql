@@ -166,7 +166,7 @@ DECLARE
     v_schedule_day text;
     v_schedule_max_patients integer;
     v_doctor_fee numeric;
-    v_platform_fee numeric;
+    v_discount_amount numeric;
     v_appointment_date date;
     v_today date := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Aden')::date;
     v_expected_day text;
@@ -273,16 +273,19 @@ BEGIN
         RAISE EXCEPTION 'APPOINTMENT_CAPACITY_REACHED';
     END IF;
 
-    SELECT doctor.consultation_fee INTO v_doctor_fee
+    SELECT doctor.consultation_fee, COALESCE(doctor.discount_amount, 0)
+    INTO v_doctor_fee, v_discount_amount
     FROM public.doctor AS doctor
     WHERE doctor.doctor_id = v_doctor_id;
 
-    v_platform_fee := COALESCE((p_appointment ->> 'platform_fee')::numeric, 0);
+    IF v_discount_amount > v_doctor_fee THEN
+        RAISE EXCEPTION 'DOCTOR_DISCOUNT_INVALID';
+    END IF;
 
     INSERT INTO public.appointment AS appointment (
         user_id, schedule_id, depart_id, patient_name, patient_phone,
         patient_age, patient_gender, notes, payment_receipt, appointment_date,
-        doctor_fee, platform_fee, total_amount, status, admin_notes, created_at
+        doctor_fee, discount_amount, total_amount, status, admin_notes, created_at
     )
     VALUES (
         (p_appointment ->> 'user_id')::bigint,
@@ -296,8 +299,8 @@ BEGIN
         p_appointment ->> 'payment_receipt',
         v_appointment_date,
         v_doctor_fee,
-        v_platform_fee,
-        v_doctor_fee + v_platform_fee,
+        v_discount_amount,
+        v_doctor_fee - v_discount_amount,
         'pending',
         NULL,
         CURRENT_TIMESTAMP

@@ -21,6 +21,33 @@ const forbiddenDoctorUpdateFields = [
 const bookingReopenDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * Builds a monetary Zod schema that safely accepts multipart numeric values.
+ *
+ * Empty strings, NaN, and infinite values remain invalid instead of being
+ * silently coerced to zero, while valid numeric strings retain their value.
+ *
+ * @param {string} requiredMessage - Arabic message for a missing or invalid amount.
+ * @param {boolean} [optional=false] - Whether the amount may be omitted.
+ * @returns {z.ZodType} Monetary validation schema.
+ */
+const monetaryAmountSchema = (requiredMessage, optional = false) => {
+    const amountSchema = z
+        .number(requiredMessage)
+        .finite("المبلغ المالي غير صالح")
+        .min(0, "المبلغ المالي لا يمكن أن يكون سالبًا");
+
+    return z.preprocess(
+        (value) => {
+            if (typeof value !== "string") return value;
+
+            const trimmedValue = value.trim();
+            return trimmedValue === "" ? Number.NaN : Number(trimmedValue);
+        },
+        optional ? amountSchema.optional() : amountSchema,
+    );
+};
+
+/**
  * Checks that a booking suspension date is a real calendar day.
  *
  * @param {string} value - Submitted ISO calendar date.
@@ -109,9 +136,11 @@ export const insertDoctorSchema = z
 
         notes: z.string().max(500, "الملاحظات طويلة جدًا").optional(),
 
-        consultation_fee: z.coerce
-            .number("سعر الاستشارة مطلوب")
-            .positive("سعر الاستشارة غير صالح"),
+        consultation_fee: monetaryAmountSchema("سعر الاستشارة مطلوب"),
+
+        discount_amount: monetaryAmountSchema(
+            "قيمة الخصم غير صالحة",
+        ).default(0),
 
         password: z
             .string("كلمة المرور مطلوبة")
@@ -128,6 +157,14 @@ export const insertDoctorSchema = z
     })
 
     .superRefine(async (data, ctx) => {
+        if (data.discount_amount > data.consultation_fee) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["discount_amount"],
+                message: "قيمة الخصم لا يمكن أن تتجاوز سعر الاستشارة.",
+            });
+        }
+
         if (!data.email) return;
 
         const {data: doctor} = await supabase
@@ -166,7 +203,8 @@ export const updateDoctorSchema = z
         bio: z
             .string()
             .min(10, "الوصف قصير جدًا")
-            .max(5000, "الوصف طويل جدًا"),
+            .max(5000, "الوصف طويل جدًا")
+            .optional(),
 
         education: z
             .string()
@@ -178,7 +216,7 @@ export const updateDoctorSchema = z
             error: () => ({
                 message: "الجنس غير صالح",
             }),
-        }),
+        }).optional(),
 
         years_exper: z.coerce
             .number()
@@ -194,11 +232,15 @@ export const updateDoctorSchema = z
 
         notes: z.string().max(500, "الملاحظات طويلة جدًا").optional(),
 
-        consultation_fee: z.coerce
-            .number()
-            .min(1000)
-            .max(50000)
-            .positive("سعر الاستشارة غير صالح"),
+        consultation_fee: monetaryAmountSchema(
+            "سعر الاستشارة غير صالح",
+            true,
+        ),
+
+        discount_amount: monetaryAmountSchema(
+            "قيمة الخصم غير صالحة",
+            true,
+        ),
 
         date_of_birth: z.coerce
             .date({
@@ -212,6 +254,18 @@ export const updateDoctorSchema = z
     })
     .passthrough()
     .superRefine((data, ctx) => {
+        if (
+            data.consultation_fee !== undefined &&
+            data.discount_amount !== undefined &&
+            data.discount_amount > data.consultation_fee
+        ) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["discount_amount"],
+                message: "قيمة الخصم لا يمكن أن تتجاوز سعر الاستشارة.",
+            });
+        }
+
         const forbiddenField = forbiddenDoctorUpdateFields.find(
             (field) => data[field] !== undefined,
         );
